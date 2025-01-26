@@ -50,12 +50,16 @@ $ go install github.com/tomnomnom/waybackurls@latest
 
 # Add Go binaries to your PATH
 $ export PATH=$PATH:$(go env GOPATH)/bin
-To verify the installation:
+```
 
+To verify the installation:
 ```
 $ waybackurls -h
+```
 How to Use Waybackurls Effectively
+
 Basic Usage
+
 Fetch archived URLs for a specific domain:
 
 ```
