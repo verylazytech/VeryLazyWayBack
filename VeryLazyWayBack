@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Usage: ./VeryLazyWayBack.sh --url <target>
+# Dependencies: waybackurls, httpx, nuclei, grep, curl
+
+banner() {
+cat <<'EOF'
+	__     __                _                    
+	\ \   / /__ _ __ _   _  | |    __ _ _____   _ 
+	 \ \ / / _ \ '__| | | | | |   / _` |_  / | | |
+	  \ V /  __/ |  | |_| | | |__| (_| |/ /| |_| |
+	   \_/ \___|_|   \__, | |_____\__,_/___|\__, |
+		         |___/                  |___/ 
+__        __          ____             _    _   _      _     
+\ \      / /_ _ _   _| __ )  __ _  ___| | _| | | |_ __| |___ 
+ \ \ /\ / / _` | | | |  _ \ / _` |/ __| |/ / | | | '__| / __|
+  \ V  V / (_| | |_| | |_) | (_| | (__|   <| |_| | |  | \__ \
+   \_/\_/ \__,_|\__, |____/ \__,_|\___|_|\_\\___/|_|  |_|___/
+                |___/                                        
+
+                                                                      
+                    @VeryLazyTech - Medium
+                    
+EOF
+}
+
+# Call the banner function
+banner
+
+set -e
+
+# Check if the target URL is provided
+if [[ "$1" != "--url" || -z "$2" ]]; then
+  echo "Usage: $0 --url <target>"
+  exit 1
+fi
+
+TARGET=$2
+
+# Create a directory for results
+mkdir -p results
+cd results || exit
+
+# Step 1: Fetch historical URLs
+echo "[+] Fetching historical URLs for $TARGET..."
+echo "$TARGET" | waybackurls > historical_urls.txt
+echo "[+] Historical URLs saved to historical_urls.txt"
+
+# Step 2: Filter URLs (e.g., .php and parameterized URLs)
+echo "[+] Filtering URLs for .php files and parameterized URLs..."
+grep -E "\.php|\?" historical_urls.txt > filtered_urls.txt
+echo "[+] Filtered URLs saved to filtered_urls.txt"
+
+# Step 3: Check live status of URLs
+echo "[+] Checking live status of URLs..."
+cat historical_urls.txt | httpx -silent -status-code -o live_urls_with_status.txt
+cat live_urls_with_status.txt | grep "200" | cut -d' ' -f1 > live_urls.txt
+echo "[+] Live URLs saved to live_urls.txt"
+
+# Step 4: Analyze JavaScript files for sensitive data
+echo "[+] Analyzing JavaScript files for sensitive data..."
+mkdir -p js_analysis
+cat live_urls.txt | grep "\.js" | while read -r js; do
+  echo "[-] Scanning $js for sensitive keywords..."
+  curl -s "$js" | grep -E "apiKey|token|password" >> js_analysis/sensitive_js_data.txt
+done
+echo "[+] JavaScript analysis complete. Results saved to js_analysis/sensitive_js_data.txt"
+
+# Step 5: Test for vulnerabilities
+echo "[+] Running Nuclei vulnerability scans on live URLs..."
+nuclei -l live_urls.txt -t /home/kali/.local/nuclei-templates/network/vulnerabilities -o vulnerabilities.txt
+echo "[+] Vulnerability scan complete. Results saved to vulnerabilities.txt"
+
+echo "Process complete. All results are in the 'results' directory."
